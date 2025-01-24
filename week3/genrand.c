@@ -9,11 +9,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <string.h>  // Include for strcmp
+#include <string.h>
 
 unsigned int seed;  // Global seed for the LCG
 
-// Function to initialize the seed based on the current time
+// Initialize the seed based on the current time
 void initSeed() {
     seed = (unsigned int)time(NULL);
 }
@@ -22,13 +22,17 @@ void initSeed() {
 unsigned int lcg() {
     const unsigned int a = 1664525;
     const unsigned int c = 1013904223;
-    // Removed m since we're using 32-bit overflow of unsigned int naturally
-    seed = a * seed + c;  // overflow occurs naturally here
+    seed = a * seed + c;  // Automatic overflow by the nature of unsigned arithmetic
     return seed;
 }
 
-// Function to generate a random integer between min and max (inclusive)
+// Generate a random integer between min and max (inclusive)
 int genRand(int min, int max) {
+    if (min > max) {
+        int temp = min;
+        min = max;
+        max = temp;  // Swap to ensure min is always less than max
+    }
     return (lcg() % (max - min + 1)) + min;
 }
 
@@ -48,10 +52,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    initSeed();  // Initialize the seed for random number generation
+    initSeed();  // Initialize the seed
 
     for (int i = 0; i < n; i++) {
-        int random_number = genRand(1, 100);  // Generate random numbers between 1 and 100
+        int random_number = genRand(1, 10000);  // Generate random numbers between 1 and 100
         fprintf(fp, "%d\n", random_number);
     }
 
