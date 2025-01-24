@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Example usage of the 'arger' program
+./arger -u "help is on the way"
+status=$?
+if [ "$status" -eq 255 ]; then
+    echo "Exit status: -1"
+else
+    echo "Exit status: $status"
+fi
+
+./arger -cap "help is on the WAY"
+status=$?
+if [ "$status" -eq 255 ]; then
+    echo "Exit status: -1"
+else
+    echo "Exit status: $status"
+fi
+
+./arger -l "HELP IS ON THE WAY"
+status=$?
+if [ "$status" -eq 255 ]; then
+    echo "Exit status: -1"
+else
+    echo "Exit status: $status"
+fi
+
+# Attempt to use an invalid flag to demonstrate error handling
+./arger -x "this will fail"
+status=$?
+if [ "$status" -eq 255 ]; then
+    echo "Exit status: -1"
+else
+    echo "Exit status: $status"
+fi
