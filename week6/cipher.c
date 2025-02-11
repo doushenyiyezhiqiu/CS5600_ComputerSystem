@@ -5,7 +5,8 @@
  *   - Reads lines from the file specified by argv[1]
  *   - Performs a trivial Caesar shift by +3
  *   - Prints the encrypted lines to stdout
- ******************************************************************************/ 
+ *
+ ******************************************************************************/
  #include <stdio.h>
  #include <stdlib.h>
  #include <ctype.h>
