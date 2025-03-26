@@ -12,7 +12,7 @@
  /* Constants for string lengths (adjust as needed) */
  #define MAX_SENDER_LEN   32
  #define MAX_RECEIVER_LEN 32
- #define MAX_CONTENT_LEN  256
+ #define MAX_CONTENT_LEN 944  // to make total size exactly 1024 bytes
  
  /* Message structure */
  typedef struct {
