@@ -69,9 +69,29 @@ mkdir -p messages
 
 ### 📚 Source Code Structure
 .
+
 ├── main.c          # Test harness and evaluation
+
 ├── message.h/c     # Message structure + disk I/O
+
 ├── cache.h/c       # Cache logic, LRU policy
+
 ├── Makefile
+
 └── messages/       # Folder where .msg files are stored
+
+### ⚙️ Configuration
+
+CACHE_CAPACITY → max number of messages in memory (default 16)
+
+MAX_CONTENT_LEN → adjusted so sizeof(Message) = 1024
+
+HASH_SIZE → size of hash table (prime number to reduce collisions)
+
+### 📝 Notes
+
+The LRU cache design closely follows the structure used in LeetCode 146: LRU Cache, adapted into C using structs, pointers, and manual memory management.
+
+All messages are fixed-size and page-aligned to support efficient caching.
+
 
