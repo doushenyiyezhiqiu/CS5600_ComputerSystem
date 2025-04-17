@@ -17,7 +17,7 @@ cd rfs                 # directory containing makefile, *.c, *.h
 make                   # builds ./rfserver and ./rfs
 ```
 
-## Run
+## Run
 
 ### 1  Start the server
 
@@ -73,22 +73,23 @@ While a client is reading (GET), the server applies a shared LOCK_SH, so multipl
 ## Source‑Level Tour
 
 
-File	Purpose / Highlights
-common.h	Port constant, buffer sizes, permission_t enum
-server.c	Thread creation, flock() logic, permission table
-client.c	CLI that builds one request and exchanges data
-server.h, client.h	Internal prototypes
-makefile	Targets rfserver, rfs, make clean
+File | Purpose / Highlights
+common.h | Port constant, buffer sizes, permission_t enum
+server.c | Thread creation, flock() logic, permission table
+client.c | CLI that builds one request and exchanges data
+server.h, client.h | Internal prototypes
+makefile | Targets rfserver, rfs, make clean
+
+
 Key server functions:
 
-
-Function	Role
-handle_write()	Exclusive lock, first‑write permissions
-handle_get()	Shared lock for consistent reads
-handle_rm()	Exclusive lock before unlink
-set_file_permission()	Adds path → RO/RW entry
-get_file_permission()	Looks up RO/RW status
-client_thread()	Worker for each connected client
+Function | Role
+handle_write() | Exclusive lock, first‑write permissions
+handle_get() | Shared lock for consistent reads
+handle_rm() | Exclusive lock before unlink
+set_file_permission() | Adds path → RO/RW entry
+get_file_permission() | Looks up RO/RW status
+client_thread() | Worker for each connected client
 
 
 ## Ideas for Extension
