@@ -3,6 +3,5 @@
 
 #include "common.h"
 
-// Optionally, you could add client-specific function prototypes here
-
 #endif // CLIENT_H
+

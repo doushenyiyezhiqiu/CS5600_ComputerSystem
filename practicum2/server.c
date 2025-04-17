@@ -1,214 +1,256 @@
-#include "server.h"
-#include <sys/stat.h> // for mkdir, stat
+/* --------------------------------------------------------------------
+ *  server.c  –  multi‑threaded remote‑file‑system server
+ *               now with per‑file flock() to protect concurrent access
+ * ------------------------------------------------------------------ */
+ #include "server.h"
 
-// Helper: Ensure server_data folder exists (and subfolders if you want)
-static void ensure_server_data_dir(void)
-{
-    // Minimal example: just ensure top-level folder exists
-    // For production, you'd want to create subdirectories, etc.
-    mkdir(SERVER_DATA_DIR, 0777); // create if not exists
-}
-
-/**
- * Write handler:
- *  - The client will send a file to be stored as 'SERVER_DATA_DIR/remotePath'
- *  - For simplicity, this example:
- *    1) Sends "Ready" to client
- *    2) Receives file contents in one shot (ignoring partial reads)
- *    3) Writes data to file
- */
-void handle_write(int client_sock, const char *localPath, const char *remotePath)
-{
-    char buffer[BUF_SIZE] = {0};
-    char fullpath[BUF_SIZE] = {0};
-
-    // Build the full server file path
-    snprintf(fullpath, sizeof(fullpath), "%s/%s", SERVER_DATA_DIR, remotePath);
-
-    // Let the client know we are ready to receive
-    const char *msg = "OK_READY_TO_RECEIVE";
-    send(client_sock, msg, strlen(msg), 0);
-
-    // Receive file data from client
-    // (In a real solution, you'd probably first recv a file size or loop in chunks)
-    int bytes_recv = recv(client_sock, buffer, BUF_SIZE, 0);
-    if (bytes_recv <= 0) {
-        fprintf(stderr, "Error receiving file data.\n");
-        return;
-    }
-
-    // Write data to the file on server
-    FILE *fp = fopen(fullpath, "wb");
-    if (!fp) {
-        perror("fopen");
-        return;
-    }
-
-    fwrite(buffer, 1, bytes_recv, fp);
-    fclose(fp);
-
-    // Send success message back
-    const char *resp = "WRITE_OK";
-    send(client_sock, resp, strlen(resp), 0);
-}
-
-void handle_get(int client_sock, const char *remotePath, const char *localPath)
-{
-    char buffer[BUF_SIZE] = {0};
-    char fullpath[BUF_SIZE] = {0};
-
-    // Build the full server file path
-    snprintf(fullpath, sizeof(fullpath), "%s/%s", SERVER_DATA_DIR, remotePath);
-
-    // Attempt to open the file
-    FILE *fp = fopen(fullpath, "rb");
-    if (!fp) {
-        // Send error message
-        const char *err = "ERR_FILE_NOT_FOUND";
-        send(client_sock, err, strlen(err), 0);
-        return;
-    }
-
-    // Send "OK" to let client know we will send data
-    const char *msg = "OK_SENDING_FILE";
-    send(client_sock, msg, strlen(msg), 0);
-
-    // Read file data
-    int bytes_read = fread(buffer, 1, BUF_SIZE, fp);
-    fclose(fp);
-
-    // Send file data in one shot (for brevity)
-    // For larger files, you'd loop over fread() + send() in chunks
-    if (bytes_read > 0) {
-        send(client_sock, buffer, bytes_read, 0);
-    }
-
-    // (Optionally) send final success message
-    // send(client_sock, "GET_OK", 6, 0);
-}
-
-void handle_rm(int client_sock, const char *targetPath)
-{
-    char fullpath[BUF_SIZE] = {0};
-
-    snprintf(fullpath, sizeof(fullpath), "%s/%s", SERVER_DATA_DIR, targetPath);
-
-    // Attempt to remove the file
-    if (remove(fullpath) == 0) {
-        const char *msg = "RM_OK";
-        send(client_sock, msg, strlen(msg), 0);
-    } else {
-        const char *err = "ERR_REMOVE_FAILED";
-        send(client_sock, err, strlen(err), 0);
-    }
-}
-
-int main(void)
-{
-    ensure_server_data_dir();
-
-    int server_sock, client_sock;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t addr_size;
-    char buffer[BUF_SIZE];
-
-    // 1. Create socket
-    server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_sock < 0) {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-    printf("[Server] Socket created.\n");
-
-    // 2. Bind
-    server_addr.sin_family      = AF_INET;
-    server_addr.sin_port        = htons(PORT);
-    server_addr.sin_addr.s_addr = INADDR_ANY; 
-    memset(server_addr.sin_zero, '\0', sizeof server_addr.sin_zero);
-
-    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("bind");
-        close(server_sock);
-        exit(EXIT_FAILURE);
-    }
-    printf("[Server] Bound to port %d.\n", PORT);
-
-    // 3. Listen
-    if (listen(server_sock, 5) == 0) {
-        printf("[Server] Listening...\n");
-    } else {
-        perror("listen");
-        close(server_sock);
-        exit(EXIT_FAILURE);
-    }
-
-    while (1) {
-        // 4. Accept incoming connection
-        addr_size = sizeof(client_addr);
-        client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &addr_size);
-        if (client_sock < 0) {
-            perror("accept");
-            continue;
-        }
-        printf("[Server] Client connected.\n");
-
-        // 5. Receive command line from client
-        memset(buffer, 0, BUF_SIZE);
-        ssize_t bytesRead = recv(client_sock, buffer, BUF_SIZE - 1, 0);
-        if (bytesRead <= 0) {
-            close(client_sock);
-            continue;
-        }
-        buffer[bytesRead] = '\0'; // Ensure null-termination
-
-        // 6. Parse the command
-        //    e.g., "WRITE localFile remoteFile"
-        char *cmd = strtok(buffer, " \t\r\n");
-        if (!cmd) {
-            close(client_sock);
-            continue;
-        }
-
-        if (strcasecmp(cmd, "WRITE") == 0) {
-            char *localPath  = strtok(NULL, " \t\r\n");
-            char *remotePath = strtok(NULL, " \t\r\n");
-            if (localPath && remotePath) {
-                handle_write(client_sock, localPath, remotePath);
-            } else {
-                const char *err = "ERR_BAD_ARGS";
-                send(client_sock, err, strlen(err), 0);
-            }
-
-        } else if (strcasecmp(cmd, "GET") == 0) {
-            char *remotePath = strtok(NULL, " \t\r\n");
-            char *localPath  = strtok(NULL, " \t\r\n");
-            if (remotePath && localPath) {
-                handle_get(client_sock, remotePath, localPath);
-            } else {
-                const char *err = "ERR_BAD_ARGS";
-                send(client_sock, err, strlen(err), 0);
-            }
-
-        } else if (strcasecmp(cmd, "RM") == 0) {
-            char *path = strtok(NULL, " \t\r\n");
-            if (path) {
-                handle_rm(client_sock, path);
-            } else {
-                const char *err = "ERR_BAD_ARGS";
-                send(client_sock, err, strlen(err), 0);
-            }
-        } else {
-            // Unknown command
-            const char *err = "ERR_UNKNOWN_CMD";
-            send(client_sock, err, strlen(err), 0);
-        }
-
-        // 7. Close this client connection, then wait for the next
-        close(client_sock);
-        printf("[Server] Client disconnected.\n");
-    }
-
-    // 8. Close listening socket (though we never reach here in this example)
-    close(server_sock);
-    return 0;
-}
+ #include <sys/file.h>   /* flock()  */
+ #include <fcntl.h>      /* open()   */
+ #include <sys/stat.h>   /* mkdir()  */
+ 
+ /* ----------  global permission table (unchanged)  ----------------- */
+ #define MAX_FILES 100
+ 
+ typedef struct {
+     char filename[256];
+     permission_t perm;          /* READ_ONLY or READ_WRITE */
+ } filemeta_t;
+ 
+ static filemeta_t      g_files[MAX_FILES];
+ static int             g_file_count = 0;
+ static pthread_mutex_t g_files_lock = PTHREAD_MUTEX_INITIALIZER;
+ 
+ /* ----------  helpers for permission table  ------------------------ */
+ static permission_t get_file_permission(const char *path)
+ {
+     pthread_mutex_lock(&g_files_lock);
+     for (int i = 0; i < g_file_count; ++i)
+         if (strcmp(g_files[i].filename, path) == 0) {
+             permission_t p = g_files[i].perm;
+             pthread_mutex_unlock(&g_files_lock);
+             return p;
+         }
+     pthread_mutex_unlock(&g_files_lock);
+     return READ_WRITE;          /* default for unknown files */
+ }
+ 
+ static void set_file_permission(const char *path, permission_t p)
+ {
+     pthread_mutex_lock(&g_files_lock);
+     /* if already present, leave it unchanged */
+     for (int i = 0; i < g_file_count; ++i)
+         if (strcmp(g_files[i].filename, path) == 0) {
+             pthread_mutex_unlock(&g_files_lock);
+             return;
+         }
+     if (g_file_count < MAX_FILES) {
+         strncpy(g_files[g_file_count].filename, path,
+                 sizeof(g_files[g_file_count].filename) - 1);
+         g_files[g_file_count].filename[255] = '\0';
+         g_files[g_file_count].perm = p;
+         ++g_file_count;
+     }
+     pthread_mutex_unlock(&g_files_lock);
+ }
+ 
+ static permission_t parse_perm(const char *s)
+ {
+     if (!s)                        return READ_WRITE;
+     if (strcasecmp(s, "RO") == 0)  return READ_ONLY;
+     return READ_WRITE;
+ }
+ 
+ /* ====================================================================
+  *  WRITE  -------------------------------------------------------------
+  * ===================================================================*/
+ static void handle_write(int csock,
+                          char *localArg,
+                          char *remotePath,
+                          char *permStr)
+ {
+     printf("[Server] WRITE: remote='%s' perm='%s'\n",
+            remotePath, permStr ? permStr : "(default RW)");
+ 
+     /* permission logic */
+     permission_t perm = get_file_permission(remotePath);
+     if (perm == READ_WRITE) {                    /* first time? */
+         set_file_permission(remotePath, parse_perm(permStr));
+         perm = get_file_permission(remotePath);
+     }
+     if (perm == READ_ONLY) {
+         send(csock, "ERR_FILE_IS_READ_ONLY", 22, 0);
+         printf("[Server]  -> rejected (read‑only)\n");
+         return;
+     }
+ 
+     /* tell client to send data */
+     send(csock, "OK_READY_TO_RECEIVE", 20, 0);
+ 
+     char full[BUF_SIZE];
+     snprintf(full, sizeof(full), "%s/%s", SERVER_DATA_DIR, remotePath);
+ 
+     /* open + exclusive lock */
+     int fd = open(full, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+     if (fd < 0) { perror("open"); send(csock,"ERR_OPEN",8,0); return; }
+     if (flock(fd, LOCK_EX) < 0) { perror("flock(EX)"); close(fd);
+         send(csock,"ERR_FLOCK_FAILED",16,0); return; }
+ 
+     /* receive exactly one chunk (demo) */
+     char buf[BUF_SIZE] = {0};
+     int  n = recv(csock, buf, sizeof(buf), 0);
+     if (n <= 0) {
+         flock(fd, LOCK_UN);
+         close(fd);
+         send(csock,"ERR_RECV_FILE_DATA",18,0);
+         return;
+     }
+     if (write(fd, buf, n) != n) {
+         perror("write");
+         flock(fd, LOCK_UN); close(fd);
+         send(csock,"ERR_WRITE_FAILED",16,0);
+         return;
+     }
+ 
+     flock(fd, LOCK_UN);
+     close(fd);
+     send(csock, "WRITE_OK", 8, 0);
+     printf("[Server]  -> wrote %d bytes to '%s'\n", n, full);
+ }
+ 
+ /* ====================================================================
+  *  GET  ---------------------------------------------------------------
+  * ===================================================================*/
+ static void handle_get(int csock,
+                        char *remotePath,
+                        char *localArg)
+ {
+     printf("[Server] GET: remote='%s'\n", remotePath);
+ 
+     char full[BUF_SIZE];
+     snprintf(full, sizeof(full), "%s/%s", SERVER_DATA_DIR, remotePath);
+ 
+     int fd = open(full, O_RDONLY);
+     if (fd < 0) {
+         send(csock,"ERR_FILE_NOT_FOUND",18,0);
+         printf("[Server]  -> not found\n");
+         return;
+     }
+     if (flock(fd, LOCK_SH) < 0) { perror("flock(SH)"); close(fd);
+         send(csock,"ERR_FLOCK_FAILED",16,0); return; }
+ 
+     char buf[BUF_SIZE] = {0};
+     int  n = read(fd, buf, sizeof(buf));
+     flock(fd, LOCK_UN);
+     close(fd);
+ 
+     send(csock,"OK_SENDING_FILE",15,0);
+     if (n > 0) send(csock, buf, n, 0);
+     printf("[Server]  -> sent %d bytes\n", n);
+ }
+ 
+ /* ====================================================================
+  *  RM  ----------------------------------------------------------------
+  * ===================================================================*/
+ static void handle_rm(int csock, char *remotePath)
+ {
+     printf("[Server] RM: remote='%s'\n", remotePath);
+ 
+     if (get_file_permission(remotePath) == READ_ONLY) {
+         send(csock,"ERR_FILE_IS_READ_ONLY",22,0);
+         printf("[Server]  -> rejected (read‑only)\n");
+         return;
+     }
+ 
+     char full[BUF_SIZE];
+     snprintf(full, sizeof(full), "%s/%s", SERVER_DATA_DIR, remotePath);
+ 
+     int fd = open(full, O_WRONLY);          /* open just for lock */
+     if (fd < 0) { send(csock,"ERR_REMOVE_FAILED",17,0);
+                   printf("[Server]  -> file not present\n"); return; }
+     if (flock(fd, LOCK_EX) < 0) { perror("flock(EX)"); close(fd);
+         send(csock,"ERR_FLOCK_FAILED",16,0); return; }
+ 
+     int rc = remove(full);
+     flock(fd, LOCK_UN);
+     close(fd);
+ 
+     if (rc == 0) {
+         send(csock,"RM_OK",5,0);
+         printf("[Server]  -> removed\n");
+     } else {
+         send(csock,"ERR_REMOVE_FAILED",17,0);
+         perror("remove");
+     }
+ }
+ 
+ /* ====================================================================
+  *  Per‑client thread
+  * ===================================================================*/
+ typedef struct { int s; struct sockaddr_in a; } client_t;
+ 
+ static void *client_thread(void *arg)
+ {
+     client_t *c = (client_t*)arg;
+     char ip[INET_ADDRSTRLEN];
+     inet_ntop(AF_INET,&c->a.sin_addr,ip,sizeof(ip));
+     unsigned short port = ntohs(c->a.sin_port);
+     printf("[Server] Client %s:%u connected\n", ip, port);
+ 
+     char buf[BUF_SIZE] = {0};
+     int  n = recv(c->s, buf, sizeof(buf)-1, 0);
+     if (n <= 0) { close(c->s); free(c); return NULL; }
+     buf[n] = '\0';
+     printf("[Server]  cmd='%s'\n", buf);
+ 
+     char *cmd  = strtok(buf," \t\r\n");
+     char *arg1 = strtok(NULL," \t\r\n");
+     char *arg2 = strtok(NULL," \t\r\n");
+     char *arg3 = strtok(NULL," \t\r\n");
+ 
+     if (!cmd) { close(c->s); free(c); return NULL; }
+ 
+     if (strcasecmp(cmd,"WRITE")==0 && arg1 && arg2)
+         handle_write(c->s,arg1,arg2,arg3);
+     else if (strcasecmp(cmd,"GET")==0 && arg1 && arg2)
+         handle_get(c->s,arg1,arg2);
+     else if (strcasecmp(cmd,"RM")==0 && arg1)
+         handle_rm(c->s,arg1);
+     else
+         send(c->s,"ERR_BAD_ARGS",12,0);
+ 
+     close(c->s);
+     printf("[Server] Client %s:%u disconnected\n", ip, port);
+     free(c);
+     return NULL;
+ }
+ 
+ /* ====================================================================
+  *  main
+  * ===================================================================*/
+ int main(void)
+ {
+     mkdir(SERVER_DATA_DIR,0777);
+ 
+     int lsock = socket(AF_INET,SOCK_STREAM,0);
+     if (lsock<0){perror("socket");return 1;}
+     int opt=1; setsockopt(lsock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+ 
+     struct sockaddr_in addr={0};
+     addr.sin_family=AF_INET; addr.sin_port=htons(PORT);
+     addr.sin_addr.s_addr=INADDR_ANY;
+     if (bind(lsock,(struct sockaddr*)&addr,sizeof(addr))<0){
+         perror("bind"); return 1;}
+     if (listen(lsock,5)<0){perror("listen");return 1;}
+     printf("[Server] Listening on port %d …\n", PORT);
+ 
+     while (1) {
+         client_t *c = malloc(sizeof(client_t));
+         socklen_t len = sizeof(c->a);
+         c->s = accept(lsock,(struct sockaddr*)&c->a,&len);
+         if (c->s < 0) { perror("accept"); free(c); continue; }
+         pthread_t tid; pthread_create(&tid,NULL,client_thread,c);
+         pthread_detach(tid);
+     }
+     return 0;
+ }
+ 
