@@ -15,26 +15,26 @@ A compact **multi‑threaded** client/server file‑storage service written in 
 git clone <your‑repo>
 cd rfs                 # directory containing makefile, *.c, *.h
 make                   # builds ./rfserver and ./rfs
+```
+
 ## Run
 
 ### 1  Start the server
 
 ```bash
-Copy
-Edit
 ./rfserver
+```
+
 # [Server] Listening on port 2024 …
 The server automatically creates the top‑level server_data/ folder the first time it runs. If you plan to write into nested paths such as folder/remote.txt, be sure that sub‑directory exists:
 
 ```bash
-Copy
-Edit
 mkdir -p server_data/folder
+```
+
 ### 2  Operate from one or more client terminals
 
 ```bash
-Copy
-Edit
 # create a local file on the *client* side
 mkdir -p client1
 echo "Hello from client1" > client1/local1.txt
@@ -56,12 +56,11 @@ cat download.txt    # -> Hello from client1
 # delete the read‑write file
 ./rfs RM folder/remote.txt    # returns RM_OK
 ## Testing Concurrency & Locks
+```
 
 Open two client shells:
 
 ```bash
-Copy
-Edit
 # Terminal A – long write (holds exclusive lock)
 ./rfs WRITE client1/big.txt folder/the_same.txt &
 
@@ -69,6 +68,7 @@ Edit
 ./rfs WRITE client1/local1.txt folder/the_same.txt
 Terminal B blocks until Terminal A’s LOCK_EX is released, proving that per‑file locking serializes concurrent writes.
 While a client is reading (GET), the server applies a shared LOCK_SH, so multiple readers can proceed concurrently but writers wait.
+```
 
 ## Source‑Level Tour
 
@@ -104,9 +104,6 @@ Implement encryption (Option 4c) – store ciphertext, decrypt on GET
 ## Clean Up
 
 ```bash
-Copy
-Edit
 make clean          # remove rfserver, rfs, *.o
 rm -rf server_data  # wipe remote files
-Copy
-Edit
+```
