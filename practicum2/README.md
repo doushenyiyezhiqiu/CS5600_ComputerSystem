@@ -12,8 +12,6 @@ A compact **multi‑threaded** client/server file‑storage service written in 
 ## Build
 
 ```bash
-git clone <your‑repo>
-cd rfs                 # directory containing makefile, *.c, *.h
 make                   # builds ./rfserver and ./rfs
 ```
 
@@ -70,39 +68,36 @@ Terminal B blocks until Terminal A’s LOCK_EX is released, proving that per�
 While a client is reading (GET), the server applies a shared LOCK_SH, so multiple readers can proceed concurrently but writers wait.
 ```
 
-## Source‑Level Tour
+## Source‑Level Tour
+
+| File | Purpose / Highlights |
+|------|----------------------|
+| `common.h`            | Port constant, buffer sizes, `permission_t` enum |
+| `server.c`            | Thread creation, **flock()** logic, permission table |
+| `client.c`            | CLI that builds one request and exchanges data |
+| `server.h`, `client.h`| Internal prototypes |
+| `makefile`            | Targets `rfserver`, `rfs`, `make clean` |
 
 
-File | Purpose / Highlights
-common.h | Port constant, buffer sizes, permission_t enum
-server.c | Thread creation, flock() logic, permission table
-client.c | CLI that builds one request and exchanges data
-server.h, client.h | Internal prototypes
-makefile | Targets rfserver, rfs, make clean
+### Key server functions
 
-
-Key server functions:
-
-Function | Role
-handle_write() | Exclusive lock, first‑write permissions
-handle_get() | Shared lock for consistent reads
-handle_rm() | Exclusive lock before unlink
-set_file_permission() | Adds path → RO/RW entry
-get_file_permission() | Looks up RO/RW status
-client_thread() | Worker for each connected client
+| Function | Role |
+|----------|------|
+| `handle_write()`        | Exclusive lock, first‑write permissions |
+| `handle_get()`          | Shared lock for consistent reads |
+| `handle_rm()`           | Exclusive lock before `unlink` |
+| `set_file_permission()` | Adds path → RO/RW entry |
+| `get_file_permission()` | Looks up RO/RW status |
+| `client_thread()`       | Worker for each connected client |
 
 
 ## Ideas for Extension
 
-LIST (LS <remoteDir>) to enumerate server directories
-
-Auto‑create nested directories on the server
-
-Replace single‑chunk transfers with a loop for arbitrarily large files
-
-Persist permissions in SQLite or another lightweight store
-
-Implement encryption (Option 4c) – store ciphertext, decrypt on GET
+* **LIST** (`LS <remoteDir>`) to enumerate server directories  
+* Auto‑create nested directories on the server  
+* Replace single‑chunk transfers with a loop for arbitrarily large files  
+* Persist permissions in SQLite or another lightweight store  
+* Implement encryption (Option 4c) – store ciphertext, decrypt on `GET`
 
 ## Clean Up
 
