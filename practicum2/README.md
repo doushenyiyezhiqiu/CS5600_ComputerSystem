@@ -89,6 +89,8 @@ handle_rm()	Exclusive lock before unlink
 set_file_permission()	Adds path → RO/RW entry
 get_file_permission()	Looks up RO/RW status
 client_thread()	Worker for each connected client
+
+
 ## Ideas for Extension
 
 LIST (LS <remoteDir>) to enumerate server directories
