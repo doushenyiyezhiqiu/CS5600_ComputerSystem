@@ -1,6 +1,6 @@
 # Practicum 2 – Self‑Evaluation  
 **Course:** CS5600 Computer Systems  
-**Team:** <Liangshe Li>   
+**Team:** Liangshe Li   
 
 | Section & Item | Max | Our Score | Where in Code (function / lines) | Notes |
 |----------------|-----|-----------|----------------------------------|-------|
