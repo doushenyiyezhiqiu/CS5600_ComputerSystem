@@ -9,7 +9,7 @@ A compact **multi‑threaded** client/server file‑storage service written in 
 
 ---
 
-## Build
+## Build
 
 ```bash
 git clone <your‑repo>
@@ -19,7 +19,7 @@ make                   # builds ./rfserver and ./rfs
 
 ## Run
 
-### 1  Start the server
+### 1  Start the server
 
 ```bash
 ./rfserver
@@ -32,7 +32,7 @@ The server automatically creates the top‑level server_data/ folder the first t
 mkdir -p server_data/folder
 ```
 
-### 2  Operate from one or more client terminals
+### 2  Operate from one or more client terminals
 
 ```bash
 # create a local file on the *client* side
@@ -70,7 +70,7 @@ Terminal B blocks until Terminal A’s LOCK_EX is released, proving that per�
 While a client is reading (GET), the server applies a shared LOCK_SH, so multiple readers can proceed concurrently but writers wait.
 ```
 
-## Source‑Level Tour
+## Source‑Level Tour
 
 
 File	Purpose / Highlights
@@ -91,7 +91,7 @@ get_file_permission()	Looks up RO/RW status
 client_thread()	Worker for each connected client
 
 
-## Ideas for Extension
+## Ideas for Extension
 
 LIST (LS <remoteDir>) to enumerate server directories
 
@@ -103,7 +103,7 @@ Persist permissions in SQLite or another lightweight store
 
 Implement encryption (Option 4c) – store ciphertext, decrypt on GET
 
-## Clean Up
+## Clean Up
 
 ```bash
 make clean          # remove rfserver, rfs, *.o
