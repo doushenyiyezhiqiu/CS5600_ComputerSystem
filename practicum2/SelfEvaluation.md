@@ -1,8 +1,6 @@
 # Practicum 2 – Self‑Evaluation  
 **Course:** CS5600 Computer Systems  
-**Team:** <Name 1>, <Name 2>  
-**Emails:** <netID1@>, <netID2@>  
-**GitHub README link to rubric copy:** <insert‑google‑sheet‑link‑here>
+**Team:** <Liangshe Li>   
 
 | Section & Item | Max | Our Score | Where in Code (function / lines) | Notes |
 |----------------|-----|-----------|----------------------------------|-------|
